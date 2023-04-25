@@ -1,9 +1,5 @@
 # gcp-setup
-Scripts to aid in automating setup of GCP environment to support acquisition by Cado. For more details see the [Cado documentation](https://docs.cadosecurity.com/cado-response/deploy/gcp/gcp-settings). These should be run from inside the GCP Shell in the Primary account. 
-
-To enable the GCP Shell in the GCP Console click on the Activate icon
-[!Activate](gcp-setup-activate.png)
-
+Scripts to aid in automating setup of GCP environment to support acquisition by Cado. For more details see the [Cado documentation](https://docs.cadosecurity.com/cado-response/deploy/gcp/gcp-settings). These should be run from inside the GCP Clound Shell in the Primary account. 
 
 Automating GCP setup comprises three scripts
 
@@ -21,3 +17,14 @@ Automating GCP setup comprises three scripts
 3. **gcp_setup_cross_project.sh** - Enables the Cloud Build API in the secondary project, adds the primary project's CadoServiceAccount and default cloud build service account to the secondary project's IAM
 
    >*Usage*: `bash gcp_setup_cross_project.sh <secondary-project-id>`
+   
+
+## Using the scripts in the GCP Cloud Shell
+
+To enable the GCP Shell in the GCP Console click on the Activate Cloud Shell icon
+
+![Activate](gcp-setup-activate.png)
+
+To upload the shell scripts, once the shell is open, upload the scripts using the Upload icon
+
+![Upload](gcp-setup-upload.png)

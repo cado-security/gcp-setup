@@ -1,10 +1,19 @@
 #!/bin/bash
 
+# This script is part 2 of the GCP setup scripts by Cado.
+
 ### This script will:
-# - Create a 'CadoServiceAccount' service account and grant it the Editor role.
-# - Enable the CloudBuild API and grant the Editor role to the default Cloud Build service account.
+# - Create a 'CadoServiceAccount' service account and grant it the CadoGCPRole role.
+# - Enable the CloudBuild API and grant the CadoGCPRole role to the default Cloud Build service account.
 
 set -e
+
+if [ -z "$1" ]; then
+  echo "Usage: $0 <CADO_GCP_ROLE ID>"
+  exit 1
+fi
+
+ROLE_ID=$1
 
 # Get the active Google Cloud Project ID and Number
 PROJECT_ID="$(gcloud config get-value project)"
@@ -26,12 +35,12 @@ gcloud iam service-accounts create "${CADO_SERVICE_ACCOUNT_NAME}" \
 # Grant Editor permissions to the CadoServiceAccount service account
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member "serviceAccount:${CADO_SERVICE_ACCOUNT_EMAIL}" \
-    --role "roles/editor"
+    --role "${ROLE_ID}"
 
 # Grant Editor permissions to the default Cloud Build service account
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member "serviceAccount:${CLOUD_BUILD_SERVICE_ACCOUNT_EMAIL}" \
-    --role "roles/editor"
+    --role "${ROLE_ID}"
 
 echo ""
-echo "Successfully created CadoServiceAccount and granted Editor permissions to the CadoServiceAccount and default Cloud Build service account."
+echo "Successfully created CadoServiceAccount and granted CadoGCPRole permissions to the CadoServiceAccount and default Cloud Build service account."

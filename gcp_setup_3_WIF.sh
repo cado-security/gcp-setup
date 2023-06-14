@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script is part 3 of the GCP setup scripts by Cado.
+
 ### This script will:
 # - Create a Workload Identity Federation Pool 'CadoAWSPool' with an AWS provider 'cado-aws-provider' from the given AWS Account ID.
 # - Grant the CadoServiceAccount access to the pool.

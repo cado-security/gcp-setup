@@ -44,10 +44,31 @@ PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.get,co
 # container.pods.exec
 # container.pods.get
 
+
+echo *** Debug Information and Permissions Check ***
+echo Currently running with permissions from:
+gcloud auth list
+
+echo Checking current project:
+gcloud config get-value project
+CURRENT_PROJECT=$(gcloud config get-value project)
+
+# Echo out the permissions of the role we're running as in the cloud shell via gcloud command:
+echo "Permissions for the current role, to check it has permission to create the role:"
+gcloud projects get-iam-policy $CURRENT_PROJECT --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:$(gcloud auth list --format='value(account)')"
+
+
 # Check if an organization ID was provided as an argument
 if [[ $# -eq 1 ]]; then
   ORG_ID=$1
   # Create custom role at the organization level
+  echo "Creating role at the organization level..."
+  echo gcloud iam roles create $ROLE_ID \
+    --organization $ORG_ID \
+    --title "$ROLE_TITLE" \
+    --description "$ROLE_DESC" \
+    --permissions $PERMISSIONS \
+    --stage GA 
   gcloud iam roles create $ROLE_ID \
     --organization $ORG_ID \
     --title "$ROLE_TITLE" \
@@ -57,6 +78,7 @@ if [[ $# -eq 1 ]]; then
   
   # Get the role ID (name field)
   ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --organization $ORG_ID --format="value(name)")
+  echo "Role ID: $ROLE_NAME"
 
 else
   # Create custom role at the project level
@@ -70,9 +92,16 @@ else
     --description "$ROLE_DESC" \
     --permissions $PERMISSIONS \
     --stage GA
+  echo gcloud iam roles create $ROLE_ID \
+    --project $PROJECT_ID \
+    --title "$ROLE_TITLE" \
+    --description "$ROLE_DESC" \
+    --permissions $PERMISSIONS \
+    --stage GA
 
   # Get the role ID (name field)
   ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --project $PROJECT_ID --format="value(name)")
+  echo "Role ID: $ROLE_NAME"
 fi
 
 echo ""

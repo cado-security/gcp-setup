@@ -12,7 +12,7 @@ set -e
 ROLE_ID="CadoGCPRole"
 ROLE_TITLE="Cado GCP Role"
 ROLE_DESC="Custom role for Cado to acquire GCP assets."
-PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.get,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.instances.get,compute.instances.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get,container.pods.list,iam.serviceAccounts.getAccessToken,iam.serviceAccounts.implicitDelegation,resourcemanager.projects.get,storage.buckets.get,storage.buckets.list,storage.objects.get,storage.objects.list"
+PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.create,compute.disks.delete,compute.disks.get,compute.disks.list,compute.disks.setLabels,compute.disks.use,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.images.get,compute.images.useReadOnly,compute.instances.create,compute.instances.get,compute.instances.list,compute.instances.setLabels,compute.instances.setMetadata,compute.instances.setServiceAccount,compute.machineTypes.list,compute.networks.get,compute.networks.list,compute.projects.get,compute.subnetworks.use,compute.subnetworks.useExternalIp,compute.zoneOperations.get,compute.zones.list,storage.buckets.create,storage.buckets.get,storage.buckets.list,storage.objects.create,storage.objects.get,storage.objects.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get,container.pods.list,iam.serviceAccounts.implicitDelegation,iam.serviceAccounts.getAccessToken,resourcemanager.projects.get,iam.serviceAccounts.actAs,compute.images.delete"
 
 ### Permissions Breakdown ###
 # - Authentication -

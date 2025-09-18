@@ -21,22 +21,33 @@ PROJECT_ID="$(gcloud config get-value project)"
 PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 CADO_SERVICE_ACCOUNT_NAME="CadoServiceAccount"
 CADO_SERVICE_ACCOUNT_EMAIL="${CADO_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Cloud Build used the legacy Cloud Build service account in the past (ending in @cloudbuild.gserviceaccount.com)
+# This has been changed to use the Compute service account instead as the default (ending in @developer.gserviceaccount.com). 
+# To support both, we apply these permissions to both service accounts.
+
+# More information about this change and these service accounts can be found here:
+# https://cloud.google.com/build/docs/cloud-build-service-account-updates
+# https://cloud.google.com/build/docs/cloud-build-service-account 
 CLOUD_BUILD_SERVICE_ACCOUNT_EMAIL="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+COMPUTE_SERVICE_ACCOUNT_EMAIL="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
 # Switch to target project and enable Cloud Build API
 gcloud config set project ${CROSS_PROJECT_ID}
 gcloud services enable cloudbuild.googleapis.com --project "${PROJECT_ID}"
 
-# Add the origin project's CadoServiceAccount and CloudBuild service account to the target project's IAM
+# Add the origin project's CadoServiceAccount, Compute service account and CloudBuild service account to the target project's IAM
 gcloud projects add-iam-policy-binding "${CROSS_PROJECT_ID}" \
     --member "serviceAccount:${CADO_SERVICE_ACCOUNT_EMAIL}" \
     --role "${ROLE_ID}"
 gcloud projects add-iam-policy-binding "${CROSS_PROJECT_ID}" \
     --member "serviceAccount:${CLOUD_BUILD_SERVICE_ACCOUNT_EMAIL}" \
     --role "${ROLE_ID}"
+gcloud projects add-iam-policy-binding "${CROSS_PROJECT_ID}" \
+    --member "serviceAccount:${COMPUTE_SERVICE_ACCOUNT_EMAIL}" \
+    --role "${ROLE_ID}"
 
 # Switch back to origin project
 gcloud config set project ${PROJECT_ID}
 
-echo ""
 echo Successfully setup permissions. ${PROJECT_ID} can now acquire from ${CROSS_PROJECT_ID}

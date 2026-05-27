@@ -3,48 +3,64 @@
 # This script is part 1 of the GCP setup scripts by Cado.
 
 ### This script will:
-# - Create a 'CadoGCPRole' role in the active project and add the PERMISSIONS list to it
-# Note: If an organization ID is passed as a parameter, the role is created at the organization level
+# - Create a 'CadoGCPRole' (persistent) role and a 'CadoGCPRoleTagged' role in the active project
+# Note: If an organization ID is passed as a parameter, roles are created at the organization level
 
 set -e
 
-# Define role ID, title and description
-ROLE_ID="CadoGCPRole"
-ROLE_TITLE="Cado GCP Role"
-ROLE_DESC="Custom role for Cado to acquire GCP assets."
-PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.create,compute.disks.delete,compute.disks.get,compute.disks.list,compute.disks.setLabels,compute.disks.use,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.images.get,compute.images.useReadOnly,compute.instances.create,compute.instances.get,compute.instances.list,compute.instances.setLabels,compute.instances.setMetadata,compute.instances.setServiceAccount,compute.machineTypes.list,compute.networks.get,compute.networks.list,compute.projects.get,compute.subnetworks.use,compute.subnetworks.useExternalIp,compute.zoneOperations.get,compute.zones.list,storage.buckets.create,storage.buckets.get,storage.buckets.list,storage.objects.create,storage.objects.get,storage.objects.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get,container.pods.list,iam.serviceAccounts.implicitDelegation,iam.serviceAccounts.getAccessToken,resourcemanager.projects.get,iam.serviceAccounts.actAs,compute.images.delete,compute.instances.getSerialPortOutput,compute.instances.delete,compute.subnetworks.list,compute.subnetworks.get"
+# Define role IDs, titles and descriptions
+ROLE_ID="CadoGCPRole_GeorgeDev"
+ROLE_TITLE="Cado GCP Role GeorgeDev"
+ROLE_DESC="Custom role for Cado to acquire GCP assets (persistent permissions)."
+
+TAGGED_ROLE_ID="CadoGCPRoleTagged_GeorgeDev"
+TAGGED_ROLE_TITLE="Cado GCP Role Tagged GeorgeDev"
+TAGGED_ROLE_DESC="Custom role for Cado to acquire GCP assets (tagged resource permissions)."
 
 ### Permissions Breakdown ###
-# - Authentication -
+# Persistent:
+#
+# IAM + Projects:
 # iam.serviceAccounts.getAccessToken
 # iam.serviceAccounts.implicitDelegation
 # resourcemanager.projects.get
-
-# - Instance Acquisition -
+#
+# GCP Compute:
 # cloudbuild.builds.create
 # cloudbuild.builds.get
+# compute.instances.list
+#
+# GCP Storage:
+# storage.buckets.list
+# storage.buckets.get
+#
+# GKE:
+# container.pods.list
+#
+# Tagged:
+#
+# GCP Compute:
 # compute.disks.get
 # compute.disks.useReadOnly
 # compute.globalOperations.get
 # compute.images.create
 # compute.instances.get
-# compute.instances.list
-# storage.buckets.list
-# compute.subnetworks.list
+# compute.subnetworks.list
 # compute.subnetworks.get
-
-# - Storage Acquisition -
-# storage.buckets.list
-# storage.buckets.get
+#
+# GCP Storage:
 # storage.objects.get
 # storage.objects.list
-
-# - GKE Acquisition - 
-# container.pods.list
+#
+# GKE:
 # container.clusters.get
 # container.clusters.list
 # container.pods.exec
 # container.pods.get
+
+PERSISTENT_PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.instances.list,storage.buckets.list,storage.buckets.get,container.pods.list,iam.serviceAccounts.getAccessToken,iam.serviceAccounts.implicitDelegation,resourcemanager.projects.get"
+
+TAGGED_PERMISSIONS="compute.disks.get,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.instances.get,compute.subnetworks.list,compute.subnetworks.get,storage.objects.get,storage.objects.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get"
 
 
 echo *** Debug Information and Permissions Check ***
@@ -55,57 +71,48 @@ echo Checking current project:
 gcloud config get-value project
 CURRENT_PROJECT=$(gcloud config get-value project)
 
-# Echo out the permissions of the role we're running as in the cloud shell via gcloud command:
 echo "Permissions for the current role, to check it has permission to create the role:"
 gcloud projects get-iam-policy $CURRENT_PROJECT --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:$(gcloud auth list --format='value(account)')"
 
 
-# Check if an organization ID was provided as an argument
+create_roles() {
+  local scope_flag=$1
+  local scope_value=$2
+
+  echo "Creating persistent role..."
+  gcloud iam roles create $ROLE_ID \
+    $scope_flag $scope_value \
+    --title "$ROLE_TITLE" \
+    --description "$ROLE_DESC" \
+    --permissions $PERSISTENT_PERMISSIONS \
+    --stage GA
+
+  echo "Creating tagged role..."
+  gcloud iam roles create $TAGGED_ROLE_ID \
+    $scope_flag $scope_value \
+    --title "$TAGGED_ROLE_TITLE" \
+    --description "$TAGGED_ROLE_DESC" \
+    --permissions $TAGGED_PERMISSIONS \
+    --stage GA
+}
+
 if [[ $# -eq 1 ]]; then
   ORG_ID=$1
-  # Create custom role at the organization level
-  echo "Creating role at the organization level..."
-  echo gcloud iam roles create $ROLE_ID \
-    --organization $ORG_ID \
-    --title "$ROLE_TITLE" \
-    --description "$ROLE_DESC" \
-    --permissions $PERMISSIONS \
-    --stage GA 
-  gcloud iam roles create $ROLE_ID \
-    --organization $ORG_ID \
-    --title "$ROLE_TITLE" \
-    --description "$ROLE_DESC" \
-    --permissions $PERMISSIONS \
-    --stage GA
-  
-  # Get the role ID (name field)
+  echo "Creating roles at the organization level..."
+  create_roles "--organization" "$ORG_ID"
+
   ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --organization $ORG_ID --format="value(name)")
-  echo "Role ID: $ROLE_NAME"
-
+  TAGGED_ROLE_NAME=$(gcloud iam roles describe $TAGGED_ROLE_ID --organization $ORG_ID --format="value(name)")
 else
-  # Create custom role at the project level
-
-  # Get the active Google Cloud Project ID
   PROJECT_ID="$(gcloud config get-value project)"
+  echo "Creating roles at the project level..."
+  create_roles "--project" "$PROJECT_ID"
 
-  gcloud iam roles create $ROLE_ID \
-    --project $PROJECT_ID \
-    --title "$ROLE_TITLE" \
-    --description "$ROLE_DESC" \
-    --permissions $PERMISSIONS \
-    --stage GA
-  echo gcloud iam roles create $ROLE_ID \
-    --project $PROJECT_ID \
-    --title "$ROLE_TITLE" \
-    --description "$ROLE_DESC" \
-    --permissions $PERMISSIONS \
-    --stage GA
-
-  # Get the role ID (name field)
   ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --project $PROJECT_ID --format="value(name)")
-  echo "Role ID: $ROLE_NAME"
+  TAGGED_ROLE_NAME=$(gcloud iam roles describe $TAGGED_ROLE_ID --project $PROJECT_ID --format="value(name)")
 fi
 
 echo ""
-echo "Role '$ROLE_TITLE' has been created."
-echo "Save this role ID to be used in the next script: $ROLE_NAME"
+echo "Persistent role '$ROLE_TITLE' created: $ROLE_NAME"
+echo "Tagged role '$TAGGED_ROLE_TITLE' created: $TAGGED_ROLE_NAME"
+echo "Save these role IDs to be used in the next script."

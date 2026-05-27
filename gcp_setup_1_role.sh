@@ -3,43 +3,70 @@
 # This script is part 1 of the GCP setup scripts by Cado.
 
 ### This script will:
-# - Create a 'CadoGCPRole' (persistent) role and a 'CadoGCPRoleTagged' role in the active project
-# Note: If an organization ID is passed as a parameter, roles are created at the organization level
+# - By default: Create a single 'CadoGCPRole' role with all permissions
+# - With --split-roles: Create a 'CadoGCPRole' (persistent) and 'CadoGCPRoleTagged' role
+# Note: If an organization ID is passed via --org, the role(s) are created at the organization level
 
 set -e
 
 # Define role IDs, titles and descriptions
-ROLE_ID="CadoGCPRole_GeorgeDev"
-ROLE_TITLE="Cado GCP Role GeorgeDev"
-ROLE_DESC="Custom role for Cado to acquire GCP assets (persistent permissions)."
+ROLE_ID="CadoGCPRole"
+ROLE_TITLE="Cado GCP Role"
+ROLE_DESC="Custom role for Cado to acquire GCP assets."
 
-TAGGED_ROLE_ID="CadoGCPRoleTagged_GeorgeDev"
-TAGGED_ROLE_TITLE="Cado GCP Role Tagged GeorgeDev"
+TAGGED_ROLE_ID="CadoGCPRoleTagged"
+TAGGED_ROLE_TITLE="Cado GCP Role Tagged"
 TAGGED_ROLE_DESC="Custom role for Cado to acquire GCP assets (tagged resource permissions)."
 
 ### Permissions Breakdown ###
-# Persistent:
 #
-# IAM + Projects:
+# - Persistent (always required, cannot be tag-scoped) -
+#
+# Authentication:
 # iam.serviceAccounts.getAccessToken
 # iam.serviceAccounts.implicitDelegation
+# iam.serviceAccounts.actAs
 # resourcemanager.projects.get
 #
-# GCP Compute:
+# Instance Acquisition:
 # cloudbuild.builds.create
 # cloudbuild.builds.get
+# compute.disks.create
+# compute.disks.delete
+# compute.disks.list
+# compute.disks.setLabels
+# compute.disks.use
+# compute.images.get
+# compute.images.useReadOnly
+# compute.images.delete
+# compute.instances.create
 # compute.instances.list
+# compute.instances.setLabels
+# compute.instances.setMetadata
+# compute.instances.setServiceAccount
+# compute.instances.getSerialPortOutput
+# compute.instances.delete
+# compute.machineTypes.list
+# compute.networks.get
+# compute.networks.list
+# compute.projects.get
+# compute.subnetworks.use
+# compute.subnetworks.useExternalIp
+# compute.zoneOperations.get
+# compute.zones.list
 #
-# GCP Storage:
-# storage.buckets.list
+# Storage Acquisition:
+# storage.buckets.create
 # storage.buckets.get
+# storage.buckets.list
+# storage.objects.create
 #
-# GKE:
+# GKE Acquisition:
 # container.pods.list
 #
-# Tagged:
+# - Tagged (scoped to tagged resources only) -
 #
-# GCP Compute:
+# Instance Acquisition:
 # compute.disks.get
 # compute.disks.useReadOnly
 # compute.globalOperations.get
@@ -48,19 +75,42 @@ TAGGED_ROLE_DESC="Custom role for Cado to acquire GCP assets (tagged resource pe
 # compute.subnetworks.list
 # compute.subnetworks.get
 #
-# GCP Storage:
+# Storage Acquisition:
 # storage.objects.get
 # storage.objects.list
 #
-# GKE:
+# GKE Acquisition:
 # container.clusters.get
 # container.clusters.list
 # container.pods.exec
 # container.pods.get
 
-PERSISTENT_PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.instances.list,storage.buckets.list,storage.buckets.get,container.pods.list,iam.serviceAccounts.getAccessToken,iam.serviceAccounts.implicitDelegation,resourcemanager.projects.get"
+ALL_PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.create,compute.disks.delete,compute.disks.get,compute.disks.list,compute.disks.setLabels,compute.disks.use,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.images.get,compute.images.useReadOnly,compute.instances.create,compute.instances.get,compute.instances.list,compute.instances.setLabels,compute.instances.setMetadata,compute.instances.setServiceAccount,compute.machineTypes.list,compute.networks.get,compute.networks.list,compute.projects.get,compute.subnetworks.use,compute.subnetworks.useExternalIp,compute.zoneOperations.get,compute.zones.list,storage.buckets.create,storage.buckets.get,storage.buckets.list,storage.objects.create,storage.objects.get,storage.objects.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get,container.pods.list,iam.serviceAccounts.implicitDelegation,iam.serviceAccounts.getAccessToken,resourcemanager.projects.get,iam.serviceAccounts.actAs,compute.images.delete,compute.instances.getSerialPortOutput,compute.instances.delete,compute.subnetworks.list,compute.subnetworks.get"
+PERSISTENT_PERMISSIONS="cloudbuild.builds.create,cloudbuild.builds.get,compute.disks.create,compute.disks.delete,compute.disks.list,compute.disks.setLabels,compute.disks.use,compute.images.get,compute.images.useReadOnly,compute.images.delete,compute.instances.create,compute.instances.list,compute.instances.setLabels,compute.instances.setMetadata,compute.instances.setServiceAccount,compute.instances.getSerialPortOutput,compute.instances.delete,compute.machineTypes.list,compute.networks.get,compute.networks.list,compute.projects.get,compute.subnetworks.use,compute.subnetworks.useExternalIp,compute.zoneOperations.get,compute.zones.list,storage.buckets.create,storage.buckets.get,storage.buckets.list,storage.objects.create,container.pods.list,iam.serviceAccounts.getAccessToken,iam.serviceAccounts.implicitDelegation,iam.serviceAccounts.actAs,resourcemanager.projects.get"
 
 TAGGED_PERMISSIONS="compute.disks.get,compute.disks.useReadOnly,compute.globalOperations.get,compute.images.create,compute.instances.get,compute.subnetworks.list,compute.subnetworks.get,storage.objects.get,storage.objects.list,container.clusters.get,container.clusters.list,container.pods.exec,container.pods.get"
+
+help() {
+  echo "Usage: $(basename $0) [--split-roles] [--org=ORG_ID] [--help]"
+  echo ""
+  echo "  --split-roles  Create separate persistent and tagged roles instead of one combined role"
+  echo "  --org=ORG_ID   Create role(s) at the organization level instead of the current project"
+  echo "  -h, --help     Show this message"
+  exit 0
+}
+
+# Parse arguments
+SPLIT_ROLES=false
+ORG_ID=""
+
+for arg in "$@"; do
+  case $arg in
+    --split-roles) SPLIT_ROLES=true ;;
+    --org=*) ORG_ID="${arg#--org=}" ;;
+    --help) help ;;
+    -h) help ;;
+  esac
+done
 
 
 echo *** Debug Information and Permissions Check ***
@@ -75,44 +125,46 @@ echo "Permissions for the current role, to check it has permission to create the
 gcloud projects get-iam-policy $CURRENT_PROJECT --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:$(gcloud auth list --format='value(account)')"
 
 
-create_roles() {
-  local scope_flag=$1
-  local scope_value=$2
+create_role() {
+  local role_id=$1
+  local role_title=$2
+  local role_desc=$3
+  local permissions=$4
 
-  echo "Creating persistent role..."
-  gcloud iam roles create $ROLE_ID \
-    $scope_flag $scope_value \
-    --title "$ROLE_TITLE" \
-    --description "$ROLE_DESC" \
-    --permissions $PERSISTENT_PERMISSIONS \
-    --stage GA
-
-  echo "Creating tagged role..."
-  gcloud iam roles create $TAGGED_ROLE_ID \
-    $scope_flag $scope_value \
-    --title "$TAGGED_ROLE_TITLE" \
-    --description "$TAGGED_ROLE_DESC" \
-    --permissions $TAGGED_PERMISSIONS \
-    --stage GA
+  if [[ -n "$ORG_ID" ]]; then
+    gcloud iam roles create $role_id \
+      --organization $ORG_ID \
+      --title "$role_title" \
+      --description "$role_desc" \
+      --permissions $permissions \
+      --stage GA
+    gcloud iam roles describe $role_id --organization $ORG_ID --format="value(name)"
+  else
+    local project_id="$(gcloud config get-value project)"
+    gcloud iam roles create $role_id \
+      --project $project_id \
+      --title "$role_title" \
+      --description "$role_desc" \
+      --permissions $permissions \
+      --stage GA
+    gcloud iam roles describe $role_id --project $project_id --format="value(name)"
+  fi
 }
 
-if [[ $# -eq 1 ]]; then
-  ORG_ID=$1
-  echo "Creating roles at the organization level..."
-  create_roles "--organization" "$ORG_ID"
+if [[ "$SPLIT_ROLES" == true ]]; then
+  echo "Creating split roles (persistent + tagged)..."
+  ROLE_NAME=$(create_role "$ROLE_ID" "$ROLE_TITLE" "$ROLE_DESC" "$PERSISTENT_PERMISSIONS")
+  TAGGED_ROLE_NAME=$(create_role "$TAGGED_ROLE_ID" "$TAGGED_ROLE_TITLE" "$TAGGED_ROLE_DESC" "$TAGGED_PERMISSIONS")
 
-  ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --organization $ORG_ID --format="value(name)")
-  TAGGED_ROLE_NAME=$(gcloud iam roles describe $TAGGED_ROLE_ID --organization $ORG_ID --format="value(name)")
+  echo ""
+  echo "Persistent role '$ROLE_TITLE' created: $ROLE_NAME"
+  echo "Tagged role '$TAGGED_ROLE_TITLE' created: $TAGGED_ROLE_NAME"
+  echo "Save these role IDs to be used in the next script."
 else
-  PROJECT_ID="$(gcloud config get-value project)"
-  echo "Creating roles at the project level..."
-  create_roles "--project" "$PROJECT_ID"
+  echo "Creating single role..."
+  ROLE_NAME=$(create_role "$ROLE_ID" "$ROLE_TITLE" "$ROLE_DESC" "$ALL_PERMISSIONS")
 
-  ROLE_NAME=$(gcloud iam roles describe $ROLE_ID --project $PROJECT_ID --format="value(name)")
-  TAGGED_ROLE_NAME=$(gcloud iam roles describe $TAGGED_ROLE_ID --project $PROJECT_ID --format="value(name)")
+  echo ""
+  echo "Role '$ROLE_TITLE' created: $ROLE_NAME"
+  echo "Save this role ID to be used in the next script."
 fi
-
-echo ""
-echo "Persistent role '$ROLE_TITLE' created: $ROLE_NAME"
-echo "Tagged role '$TAGGED_ROLE_TITLE' created: $TAGGED_ROLE_NAME"
-echo "Save these role IDs to be used in the next script."

@@ -14,7 +14,7 @@ ROLE_ID="CadoGCPRole"
 ROLE_TITLE="Cado GCP Role"
 ROLE_DESC="Custom role for Cado to acquire GCP assets."
 
-TAGGED_ROLE_ID="CadoGCPRoleTagged"
+TAGGED_ROLE_ID="CadoGCPRoleTagged_LASTTEST"
 TAGGED_ROLE_TITLE="Cado GCP Role Tagged"
 TAGGED_ROLE_DESC="Custom role for Cado to acquire GCP assets (tagged resource permissions)."
 
